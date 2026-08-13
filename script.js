@@ -7,8 +7,15 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 
 // Set canvas size to fill the screen
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight - 120; // Leave space for controls
+    if (isMobile) {
+        // Mobile: use full screen minus status bar and controls
+        canvas.width = window.innerWidth;
+        canvas.height = Math.min(window.innerHeight - 140, window.innerHeight * 0.7);
+    } else {
+        // Desktop: responsive sizing
+        canvas.width = Math.min(window.innerWidth - 40, 1000);
+        canvas.height = Math.min(window.innerHeight - 200, 600);
+    }
     
     // Show/hide hints based on device
     document.getElementById('mobileHint').style.display = isMobile ? 'block' : 'none';
@@ -69,7 +76,7 @@ const ball = {
 // Game State
 let gameRunning = false;
 let keys = {};
-let touchY = null;
+let touchActive = false;
 
 // ============ KEYBOARD EVENTS ============
 document.addEventListener('keydown', (e) => {
@@ -87,7 +94,7 @@ document.addEventListener('keyup', (e) => {
 
 // ============ MOUSE EVENTS ============
 canvas.addEventListener('mousemove', (e) => {
-    if (isMobile) return; // Skip mouse on mobile
+    if (isMobile || touchActive) return; // Skip mouse on mobile
     
     const rect = canvas.getBoundingClientRect();
     const mouseY = e.clientY - rect.top;
@@ -98,31 +105,37 @@ canvas.addEventListener('mousemove', (e) => {
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault(); // Prevent scrolling
     
-    const touch = e.touches[0];
-    const rect = canvas.getBoundingClientRect();
-    const touchY = touch.clientY - rect.top;
-    
-    player.y = Math.max(0, Math.min(touchY - paddleHeight / 2, canvas.height - paddleHeight));
-});
+    if (e.touches.length > 0) {
+        touchActive = true;
+        const touch = e.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const currentTouchY = touch.clientY - rect.top;
+        
+        // Move paddle based on touch position
+        player.y = Math.max(0, Math.min(currentTouchY - paddleHeight / 2, canvas.height - paddleHeight));
+    }
+}, { passive: false });
 
 // Start/pause with tap on mobile
 canvas.addEventListener('touchstart', (e) => {
-    if (isMobile && e.touches.length === 1) {
+    e.preventDefault();
+    touchActive = true;
+    
+    if (e.touches.length === 1) {
         gameRunning = !gameRunning;
     }
-});
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+    touchActive = false;
+}, { passive: false });
 
 // Single tap to start game on desktop too
 canvas.addEventListener('click', () => {
-    gameRunning = !gameRunning;
-});
-
-// Prevent default touch behaviors
-document.addEventListener('touchstart', (e) => {
-    if (e.target === canvas) {
-        e.preventDefault();
+    if (!isMobile) {
+        gameRunning = !gameRunning;
     }
-}, { passive: false });
+});
 
 // ============ GAME UPDATE FUNCTIONS ============
 
