@@ -2,6 +2,33 @@
 const canvas = document.getElementById('pongCanvas');
 const ctx = canvas.getContext('2d');
 
+// Detect if device is mobile
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Set canvas size to fill the screen
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight - 120; // Leave space for controls
+    
+    // Show/hide hints based on device
+    document.getElementById('mobileHint').style.display = isMobile ? 'block' : 'none';
+    document.getElementById('desktopHint').style.display = isMobile ? 'none' : 'block';
+    
+    // Update paddle positions if out of bounds
+    if (player.y + paddleHeight > canvas.height) {
+        player.y = canvas.height - paddleHeight;
+    }
+    if (computer.y + paddleHeight > canvas.height) {
+        computer.y = canvas.height - paddleHeight;
+    }
+}
+
+// Initial canvas resize
+resizeCanvas();
+
+// Resize canvas on window resize
+window.addEventListener('resize', resizeCanvas);
+
 // Game Objects
 const paddleWidth = 10;
 const paddleHeight = 80;
@@ -14,7 +41,7 @@ const player = {
     width: paddleWidth,
     height: paddleHeight,
     dy: 0,
-    speed: 6,
+    speed: 7,
     score: 0
 };
 
@@ -42,8 +69,9 @@ const ball = {
 // Game State
 let gameRunning = false;
 let keys = {};
+let touchY = null;
 
-// Event Listeners
+// ============ KEYBOARD EVENTS ============
 document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
     
@@ -57,12 +85,46 @@ document.addEventListener('keyup', (e) => {
     keys[e.key] = false;
 });
 
-// Mouse tracking for player paddle
+// ============ MOUSE EVENTS ============
 canvas.addEventListener('mousemove', (e) => {
+    if (isMobile) return; // Skip mouse on mobile
+    
     const rect = canvas.getBoundingClientRect();
     const mouseY = e.clientY - rect.top;
     player.y = Math.max(0, Math.min(mouseY - paddleHeight / 2, canvas.height - paddleHeight));
 });
+
+// ============ TOUCH EVENTS ============
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent scrolling
+    
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const touchY = touch.clientY - rect.top;
+    
+    player.y = Math.max(0, Math.min(touchY - paddleHeight / 2, canvas.height - paddleHeight));
+});
+
+// Start/pause with tap on mobile
+canvas.addEventListener('touchstart', (e) => {
+    if (isMobile && e.touches.length === 1) {
+        gameRunning = !gameRunning;
+    }
+});
+
+// Single tap to start game on desktop too
+canvas.addEventListener('click', () => {
+    gameRunning = !gameRunning;
+});
+
+// Prevent default touch behaviors
+document.addEventListener('touchstart', (e) => {
+    if (e.target === canvas) {
+        e.preventDefault();
+    }
+}, { passive: false });
+
+// ============ GAME UPDATE FUNCTIONS ============
 
 // Update player paddle with keyboard
 function updatePlayerPaddle() {
@@ -153,7 +215,8 @@ function updateScore() {
     document.getElementById('computerScore').textContent = computer.score;
 }
 
-// Draw functions
+// ============ DRAW FUNCTIONS ============
+
 function drawPaddle(paddle) {
     ctx.fillStyle = 'white';
     ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
@@ -195,11 +258,18 @@ function draw() {
 
     // Draw game status
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = '14px Arial';
-    ctx.fillText(gameRunning ? '' : 'Press SPACE to start', canvas.width / 2 - 70, 30);
+    ctx.font = '16px Arial';
+    ctx.textAlign = 'center';
+    
+    if (!gameRunning) {
+        ctx.fillText(isMobile ? 'Tap to start' : 'Press SPACE to start', canvas.width / 2, 40);
+    }
+    
+    ctx.textAlign = 'left';
 }
 
-// Main game loop
+// ============ MAIN GAME LOOP ============
+
 function gameLoop() {
     if (gameRunning) {
         updatePlayerPaddle();
